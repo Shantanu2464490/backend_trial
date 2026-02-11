@@ -1,8 +1,6 @@
 ﻿using backend_trial.Data;
 using backend_trial.Models.Domain;
 using backend_trial.Models.DTO;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,19 +8,13 @@ namespace backend_trial.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class AdminController : ControllerBase
+    public class CategorieController : ControllerBase
     {
         private readonly IdeaBoardDbContext _dbContext;
 
-        public AdminController(IdeaBoardDbContext dbContext)
+        public CategorieController(IdeaBoardDbContext dbContext)
         {
             _dbContext = dbContext;
-        }
-
-        [HttpGet]
-        public IActionResult GetAdminData()
-        {
-            return Ok(new { Message = "This is admin data" });
         }
 
         // Get all categories

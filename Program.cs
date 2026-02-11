@@ -7,6 +7,7 @@ using System.Text;
 using Microsoft.OpenApi.Models;
 using backend_trial.Services;
 using backend_trial.Middlewares;
+using backend_trial.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -57,9 +58,8 @@ builder.Services.AddSwaggerGen(options =>
 });
 builder.Services.AddDbContext<IdeaBoardDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-
 // Add Repositories
-
+builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 
 // Add Services
 builder.Services.AddScoped<ITokenService, TokenService>();

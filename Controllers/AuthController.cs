@@ -1,100 +1,46 @@
-﻿using backend_trial.Data;
-using backend_trial.Models.Domain;
-using backend_trial.Models.DTO;
-using backend_trial.Services;
-using BCrypt.Net;
+﻿using backend_trial.Models.DTO;
+using backend_trial.Repositories;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace backend_trial.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class AuthController : Controller
+    public class AuthController : ControllerBase
     {
-        private readonly IdeaBoardDbContext context;
-        private readonly ITokenService tokenService;
+        private readonly IAuthRepository authRepository;
 
-        public AuthController(IdeaBoardDbContext context , ITokenService tokenService)
+        public AuthController(IAuthRepository authRepository)
         {
-            this.context = context;
-            this.tokenService = tokenService;
+            this.authRepository = authRepository;
         }
 
         [HttpPost]
         [Route("register")]
-        public async Task<ActionResult<AuthResponseDto>> Register([FromBody] RegisterRequestDto request)
+        public async Task<ActionResult<string>> Register([FromBody] RegisterRequestDto request)
         {
-            // Check if user with the same email already exists
-            if (await context.Users.AnyAsync(u => u.Email == request.Email))
+            var (success, message) = await authRepository.RegisterAsync(request);
+
+            if (!success)
             {
-                return BadRequest("User with this email already exists.");
+                return BadRequest(message);
             }
 
-            // Parse role string to enum
-            if (!Enum.TryParse<UserRole>(request.Role, true, out var userRole))
-            {
-                return BadRequest("Invalid role. Must be 'Employee', 'Manager', or 'Admin'.");
-            }
-
-            // Hash the password before storing
-            string passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
-
-            // Create new User
-            var user = new User
-            {
-                Name = request.Name,
-                Email = request.Email,
-                PasswordHash = passwordHash,
-                Role = userRole,
-                Status = UserStatus.Active
-            };
-
-            // Store user in DataBase
-            context.Users.Add(user);
-            await context.SaveChangesAsync();
-
-           
-            return Ok("Registration successful. Please login to continue.");
+            return Ok(message);
         }
 
         [HttpPost]
         [Route("login")]
         public async Task<ActionResult<AuthResponseDto>> Login([FromBody] LoginRequestDto request)
         {
-            // Find user by email
-            var user = await context.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
+            var (success, user, message) = await authRepository.LoginAsync(request);
 
-            if (user == null)
+            if (!success)
             {
-                return Unauthorized("Invalid email or password.");
+                return Unauthorized(message);
             }
 
-            // Verify password
-            if(!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
-            {
-                return Unauthorized("Invalid email or password.");
-            }
-
-            // Check if user is active
-            if(user.Status != UserStatus.Active)
-            {
-                return Unauthorized("User account is not active.");
-            }
-
-            // Generate Jwt token
-            var token = tokenService.CreateJwtToken(user);
-
-            var response = new AuthResponseDto
-            {
-                UserId = user.UserId,
-                Name = user.Name,
-                Email = user.Email,
-                Role = user.Role,
-                Status = user.Status,
-                Token = token
-            };
-            return Ok(response.Token);
+            return Ok(user);
         }
     }
 }

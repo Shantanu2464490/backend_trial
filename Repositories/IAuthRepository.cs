@@ -2,8 +2,10 @@
 
 namespace backend_trial.Repositories
 {
-    public class IAuthRepository
+    public interface IAuthRepository
     {
-        Task<Result<AuthResponseDto>> RegisterAsync(RegisterRequestDto request);
+        Task<bool> UserExistsAsync(string email);
+        Task<(bool Success, string Message)> RegisterAsync(RegisterRequestDto request);
+        Task<(bool Success, AuthResponseDto? User, string Message)> LoginAsync(LoginRequestDto request);
     }
 }

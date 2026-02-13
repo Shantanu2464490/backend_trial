@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using backend_trial.Data;
 
@@ -11,9 +12,11 @@ using backend_trial.Data;
 namespace backend_trial.Migrations
 {
     [DbContext(typeof(IdeaBoardDbContext))]
-    partial class IdeaBoardDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260213040705_AddNotificationForeignKeyColumns")]
+    partial class AddNotificationForeignKeyColumns
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

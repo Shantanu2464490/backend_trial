@@ -1,6 +1,7 @@
 ﻿using backend_trial.Data;
 using backend_trial.Models.Domain;
 using backend_trial.Models.DTO;
+using backend_trial.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -13,10 +14,12 @@ namespace backend_trial.Controllers
     public class IdeaController : ControllerBase
     {
         private readonly IdeaBoardDbContext _dbContext;
+        private readonly INotificationService _notificationService;
 
-        public IdeaController(IdeaBoardDbContext dbContext)
+        public IdeaController(IdeaBoardDbContext dbContext, INotificationService notificationService)
         {
             _dbContext = dbContext;
+            _notificationService = notificationService;
         }
 
         [HttpGet("all")]
@@ -211,6 +214,9 @@ namespace backend_trial.Controllers
 
                 _dbContext.Ideas.Add(newIdea);
                 await _dbContext.SaveChangesAsync();
+
+                // Notify admins about the new idea
+                await _notificationService.CreateNewIdeaNotificationAsync(newIdea.IdeaId, newIdea.Title, newIdea.SubmittedByUserId);
 
                 var responseIdea = new IdeaResponseDto
                 {

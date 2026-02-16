@@ -86,8 +86,56 @@ namespace backend_trial.Controllers
                     return Unauthorized(new { Message = "User ID not found in token" });
                 }
 
-                var responseIdea = await ideaRepository.SubmitIdeaAsync(ideaRequestDto, userGuid);
-                return CreatedAtAction(nameof(GetIdeaById), new { id = responseIdea.IdeaId }, responseIdea);
+                // Verify category exists and is active
+                var category = await _dbContext.Categories.FirstOrDefaultAsync(c => c.CategoryId == ideaRequestDto.CategoryId);
+                if (category == null)
+                {
+                    return NotFound(new { Message = "Category not found" });
+                }
+
+                if (!category.IsActive)
+                {
+                    return BadRequest(new { Message = "Selected category is inactive" });
+                }
+
+                // Verify user exists
+                var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.UserId == userGuid);
+                if (user == null)
+                {
+                    return Unauthorized(new { Message = "User not found" });
+                }
+
+                var newIdea = new Idea
+                {
+                    IdeaId = Guid.NewGuid(),
+                    Title = ideaRequestDto.Title,
+                    Description = ideaRequestDto.Description,
+                    CategoryId = ideaRequestDto.CategoryId,
+                    SubmittedByUserId = userGuid,
+                    SubmittedDate = DateTime.UtcNow,
+                    Status = IdeaStatus.UnderReview
+                };
+
+                _dbContext.Ideas.Add(newIdea);
+                await _dbContext.SaveChangesAsync();
+
+                var responseIdea = new IdeaResponseDto
+                {
+                    IdeaId = newIdea.IdeaId,
+                    Title = newIdea.Title,
+                    Description = newIdea.Description,
+                    CategoryId = newIdea.CategoryId,
+                    CategoryName = category.Name,
+                    SubmittedByUserId = newIdea.SubmittedByUserId,
+                    SubmittedByUserName = user.Name,
+                    SubmittedDate = newIdea.SubmittedDate,
+                    Status = newIdea.Status.ToString(),
+                    Upvotes = 0,
+                    Downvotes = 0,
+                    Comments = new List<CommentResponseDto>()
+                };
+
+                return CreatedAtAction(nameof(GetIdeaById), new { id = newIdea.IdeaId }, responseIdea);
             }
             catch (Exception ex)
             {

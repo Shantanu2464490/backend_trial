@@ -1,6 +1,7 @@
 ﻿using backend_trial.Data;
 using backend_trial.Models.Domain;
 using backend_trial.Models.DTO;
+using backend_trial.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -14,10 +15,12 @@ namespace backend_trial.Controllers
     public class ReviewController : ControllerBase
     {
         private readonly IdeaBoardDbContext _dbContext;
+        private readonly INotificationService _notificationService;
 
-        public ReviewController(IdeaBoardDbContext dbContext)
+        public ReviewController(IdeaBoardDbContext dbContext, INotificationService notificationService)
         {
             _dbContext = dbContext;
+            _notificationService = notificationService;
         }
 
         // Get all ideas with votes, comments and reviews (for manager review)
@@ -307,6 +310,16 @@ namespace backend_trial.Controllers
 
                 _dbContext.Reviews.Add(review);
                 await _dbContext.SaveChangesAsync();
+
+                // Send notification
+                await _notificationService.CreateManagerDecisionNotificationAsync(
+                    review.IdeaId, 
+                    idea.Title, 
+                    idea.SubmittedByUserId, 
+                    review.ReviewerId, 
+                    manager.Name, 
+                    review.Decision.ToString()
+                );
 
                 var response = new ReviewResponseDto
                 {

@@ -17,30 +17,50 @@ namespace backend_trial.Controllers
 
         [HttpPost]
         [Route("register")]
-        public async Task<ActionResult<string>> Register([FromBody] RegisterRequestDto request)
+        public async Task<ActionResult<AuthResponseWrapper>> Register([FromBody] RegisterRequestDto request)
         {
             var (success, message) = await authRepository.RegisterAsync(request);
 
             if (!success)
             {
-                return BadRequest(message);
+                return BadRequest(new AuthResponseWrapper
+                {
+                    Success = false,
+                    Message = message,
+                    Data = null
+                });
             }
 
-            return Ok(message);
+            return Ok(new AuthResponseWrapper
+            {
+                Success = true,
+                Message = message,
+                Data = null
+            });
         }
 
         [HttpPost]
         [Route("login")]
-        public async Task<ActionResult<AuthResponseDto>> Login([FromBody] LoginRequestDto request)
+        public async Task<ActionResult<AuthResponseWrapper>> Login([FromBody] LoginRequestDto request)
         {
             var (success, user, message) = await authRepository.LoginAsync(request);
 
             if (!success)
             {
-                return Unauthorized(message);
+                return Unauthorized(new AuthResponseWrapper
+                {
+                    Success = false,
+                    Message = message,
+                    Data = null
+                });
             }
 
-            return Ok(user);
+            return Ok(new AuthResponseWrapper
+            {
+                Success = true,
+                Message = message,
+                Data = user
+            });
         }
     }
 }

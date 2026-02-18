@@ -36,6 +36,28 @@ namespace backend_trial.Repositories
                 return (false, "Invalid role. Must be 'Employee', 'Manager', or 'Admin'.");
             }
 
+            // Role-specific validation and status assignment
+            UserStatus userStatus = UserStatus.Active;
+
+            if (userRole == UserRole.Manager)
+            {
+                // Managers are inactive by default
+                userStatus = UserStatus.Inactive;
+            }
+            else if (userRole == UserRole.Admin)
+            {
+                // Check admin registration constraints
+                var adminCount = await context.Users.CountAsync(u => u.Role == UserRole.Admin);
+
+                if (adminCount >= 2)
+                {
+                    return (false, "Admin registration is restricted. Maximum 2 admins are allowed in the system.");
+                }
+
+                // First admin is active by default, subsequent admins are inactive
+                userStatus = adminCount == 0 ? UserStatus.Active : UserStatus.Inactive;
+            }
+
             // Hash the password before storing
             string passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
 
@@ -46,14 +68,20 @@ namespace backend_trial.Repositories
                 Email = request.Email,
                 PasswordHash = passwordHash,
                 Role = userRole,
-                Status = UserStatus.Active
+                Status = userStatus
             };
 
             // Store user in Database
             context.Users.Add(user);
             await context.SaveChangesAsync();
 
-            return (true, "Registration successful. Please login to continue.");
+            string successMessage = userRole == UserRole.Manager 
+                ? "Registration successful. Your account is inactive. An admin must activate it before you can login."
+                : userRole == UserRole.Admin && userStatus == UserStatus.Inactive
+                    ? "Registration successful. Your account is inactive. The primary admin must activate it before you can login."
+                    : "Registration successful. Please login to continue.";
+
+            return (true, successMessage);
         }
 
         public async Task<(bool Success, AuthResponseDto? User, string Message)> LoginAsync(LoginRequestDto request)
@@ -75,7 +103,7 @@ namespace backend_trial.Repositories
             // Check if user is active
             if (user.Status != UserStatus.Active)
             {
-                return (false, null, "User account is not active.");
+                return (false, null, "Your account is not active. Please contact an administrator.");
             }
 
             // Generate Jwt token

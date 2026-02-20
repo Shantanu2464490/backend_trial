@@ -8,6 +8,7 @@ namespace backend_trial.Models.DTO
         public string ReviewerName { get; set; } = null!;
         public string Feedback { get; set; } = null!;
         public string Decision { get; set; } = null!;
+        public string? RejectionReason { get; set; }
         public DateTime ReviewDate { get; set; }
     }
 }

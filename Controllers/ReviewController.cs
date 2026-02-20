@@ -23,6 +23,16 @@ namespace backend_trial.Controllers
             _notificationService = notificationService;
         }
 
+        private Guid GetCurrentUserId()
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var userGuid))
+            {
+                throw new UnauthorizedAccessException("User ID not found in token");
+            }
+            return userGuid;
+        }
+
         // Get all ideas with votes, comments and reviews (for manager review)
         [HttpGet("ideas")]
         public async Task<ActionResult> GetAllIdeasForReview()
@@ -50,6 +60,8 @@ namespace backend_trial.Controllers
                         Status = i.Status.ToString(),
                         Upvotes = i.Votes.Count(v => v.VoteType == VoteType.Upvote),
                         Downvotes = i.Votes.Count(v => v.VoteType == VoteType.Downvote),
+                        ReviewedByUserId = (i.Status == IdeaStatus.Approved || i.Status == IdeaStatus.Rejected) ? i.ReviewedByUserId : null,
+                        ReviewedByUserName = (i.Status == IdeaStatus.Approved || i.Status == IdeaStatus.Rejected) ? i.ReviewedByUserName : null,
                         Comments = i.Comments.Select(c => new CommentResponseDto
                         {
                             CommentId = c.CommentId,
@@ -66,6 +78,7 @@ namespace backend_trial.Controllers
                             ReviewerName = r.Reviewer.Name,
                             Feedback = r.Feedback,
                             Decision = r.Decision.ToString(),
+                            RejectionReason = r.RejectionReason,
                             ReviewDate = r.ReviewDate
                         }).ToList()
                     })
@@ -89,7 +102,7 @@ namespace backend_trial.Controllers
                 // Validate status
                 if (!Enum.TryParse<IdeaStatus>(status, true, out var ideaStatus))
                 {
-                        return BadRequest(new { Message = "Invalid status. Valid values are: Rejected, UnderReview, Approved" });
+                    return BadRequest(new { Message = "Invalid status. Valid values are: Rejected, UnderReview, Approved" });
                 }
 
                 var ideas = await _dbContext.Ideas
@@ -114,6 +127,8 @@ namespace backend_trial.Controllers
                         Status = i.Status.ToString(),
                         Upvotes = i.Votes.Count(v => v.VoteType == VoteType.Upvote),
                         Downvotes = i.Votes.Count(v => v.VoteType == VoteType.Downvote),
+                        ReviewedByUserId = (i.Status == IdeaStatus.Approved || i.Status == IdeaStatus.Rejected) ? i.ReviewedByUserId : null,
+                        ReviewedByUserName = (i.Status == IdeaStatus.Approved || i.Status == IdeaStatus.Rejected) ? i.ReviewedByUserName : null,
                         Comments = i.Comments.Select(c => new CommentResponseDto
                         {
                             CommentId = c.CommentId,
@@ -130,6 +145,7 @@ namespace backend_trial.Controllers
                             ReviewerName = r.Reviewer.Name,
                             Feedback = r.Feedback,
                             Decision = r.Decision.ToString(),
+                            RejectionReason = r.RejectionReason,
                             ReviewDate = r.ReviewDate
                         }).ToList()
                     })
@@ -172,6 +188,8 @@ namespace backend_trial.Controllers
                         Status = i.Status.ToString(),
                         Upvotes = i.Votes.Count(v => v.VoteType == VoteType.Upvote),
                         Downvotes = i.Votes.Count(v => v.VoteType == VoteType.Downvote),
+                        ReviewedByUserId = (i.Status == IdeaStatus.Approved || i.Status == IdeaStatus.Rejected) ? i.ReviewedByUserId : null,
+                        ReviewedByUserName = (i.Status == IdeaStatus.Approved || i.Status == IdeaStatus.Rejected) ? i.ReviewedByUserName : null,
                         Comments = i.Comments.Select(c => new CommentResponseDto
                         {
                             CommentId = c.CommentId,
@@ -188,6 +206,7 @@ namespace backend_trial.Controllers
                             ReviewerName = r.Reviewer.Name,
                             Feedback = r.Feedback,
                             Decision = r.Decision.ToString(),
+                            RejectionReason = r.RejectionReason,
                             ReviewDate = r.ReviewDate
                         }).ToList()
                     })
@@ -223,14 +242,28 @@ namespace backend_trial.Controllers
                     return BadRequest(new { Message = "Invalid status. Valid values are: Rejected, UnderReview, Approved" });
                 }
 
+                var currentUserId = GetCurrentUserId();
+
                 var idea = await _dbContext.Ideas
                     .Include(i => i.Category)
                     .Include(i => i.SubmittedByUser)
+                    .Include(i => i.Reviews)
                     .FirstOrDefaultAsync(i => i.IdeaId == ideaId);
 
                 if (idea == null)
                 {
                     return NotFound(new { Message = "Idea not found" });
+                }
+
+                // Authorization Logic:
+                // 1. If idea is not reviewed yet (status is UnderReview), any manager can change it
+                // 2. If idea is already reviewed (Approved/Rejected), only the original reviewer can change it
+                if (idea.Status != IdeaStatus.UnderReview)
+                {
+                    if (idea.ReviewedByUserId != currentUserId)
+                    {
+                        return Forbid("Only the original reviewer can change the status of this idea");
+                    }
                 }
 
                 var oldStatus = idea.Status;
@@ -239,7 +272,7 @@ namespace backend_trial.Controllers
                 _dbContext.Ideas.Update(idea);
                 await _dbContext.SaveChangesAsync();
 
-                return Ok(new { Message = $"Idea status changed from {oldStatus} to {newStatus}" });
+                return Ok(new { Message = $"Status changed from {oldStatus} to {newStatus} successfully" });
             }
             catch (Exception ex)
             {
@@ -249,7 +282,7 @@ namespace backend_trial.Controllers
 
         // Submit a review on an idea
         [HttpPost("submit")]
-        public async Task<ActionResult> SubmitReview([FromBody] ReviewWithIdeaRequestDto request)
+        public async Task<ActionResult> SubmitReview([FromBody] ReviewSubmitDto request)
         {
             try
             {
@@ -269,14 +302,19 @@ namespace backend_trial.Controllers
                     return BadRequest(new { Message = "Invalid decision. Valid values are: Approve, Reject" });
                 }
 
-                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var managerGuid))
+                // Validate rejection reason when decision is Reject
+                if (reviewDecision == ReviewDecision.Rejected && string.IsNullOrWhiteSpace(request.RejectionReason))
                 {
-                    return Unauthorized(new { Message = "User ID not found in token" });
+                    return BadRequest(new { Message = "Rejection reason is mandatory when rejecting an idea", ErrorCode = "REJECTION_REASON_REQUIRED" });
                 }
 
+                var managerGuid = GetCurrentUserId();
+
                 // Verify idea exists
-                var idea = await _dbContext.Ideas.FirstOrDefaultAsync(i => i.IdeaId == request.IdeaId);
+                var idea = await _dbContext.Ideas
+                    .Include(i => i.SubmittedByUser)
+                    .FirstOrDefaultAsync(i => i.IdeaId == request.IdeaId);
+                
                 if (idea == null)
                 {
                     return NotFound(new { Message = "Idea not found" });
@@ -305,19 +343,28 @@ namespace backend_trial.Controllers
                     ReviewerId = managerGuid,
                     Feedback = request.Feedback,
                     Decision = reviewDecision,
+                    RejectionReason = reviewDecision == ReviewDecision.Rejected ? request.RejectionReason : null,
                     ReviewDate = DateTime.UtcNow
                 };
 
                 _dbContext.Reviews.Add(review);
+
+                // Update Idea with reviewer info
+                idea.ReviewedByUserId = managerGuid;
+                idea.ReviewedByUserName = manager.Name;
+                idea.ReviewedDate = DateTime.UtcNow;
+                idea.Status = reviewDecision == ReviewDecision.Approved ? IdeaStatus.Approved : IdeaStatus.Rejected;
+
+                _dbContext.Ideas.Update(idea);
                 await _dbContext.SaveChangesAsync();
 
                 // Send notification
                 await _notificationService.CreateManagerDecisionNotificationAsync(
-                    review.IdeaId, 
-                    idea.Title, 
-                    idea.SubmittedByUserId, 
-                    review.ReviewerId, 
-                    manager.Name, 
+                    review.IdeaId,
+                    idea.Title,
+                    idea.SubmittedByUserId,
+                    review.ReviewerId,
+                    manager.Name,
                     review.Decision.ToString()
                 );
 
@@ -329,6 +376,7 @@ namespace backend_trial.Controllers
                     ReviewerName = manager.Name,
                     Feedback = review.Feedback,
                     Decision = review.Decision.ToString(),
+                    RejectionReason = review.RejectionReason,
                     ReviewDate = review.ReviewDate
                 };
 
@@ -364,6 +412,7 @@ namespace backend_trial.Controllers
                     ReviewerName = review.Reviewer.Name,
                     Feedback = review.Feedback,
                     Decision = review.Decision.ToString(),
+                    RejectionReason = review.RejectionReason,
                     ReviewDate = review.ReviewDate
                 };
 
@@ -400,6 +449,7 @@ namespace backend_trial.Controllers
                         ReviewerName = r.Reviewer.Name,
                         Feedback = r.Feedback,
                         Decision = r.Decision.ToString(),
+                        RejectionReason = r.RejectionReason,
                         ReviewDate = r.ReviewDate
                     })
                     .ToListAsync();
@@ -418,11 +468,7 @@ namespace backend_trial.Controllers
         {
             try
             {
-                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var managerGuid))
-                {
-                    return Unauthorized(new { Message = "User ID not found in token" });
-                }
+                var managerGuid = GetCurrentUserId();
 
                 var reviews = await _dbContext.Reviews
                     .Where(r => r.ReviewerId == managerGuid)
@@ -437,6 +483,7 @@ namespace backend_trial.Controllers
                         ReviewerName = r.Reviewer.Name,
                         Feedback = r.Feedback,
                         Decision = r.Decision.ToString(),
+                        RejectionReason = r.RejectionReason,
                         ReviewDate = r.ReviewDate
                     })
                     .ToListAsync();
@@ -445,111 +492,7 @@ namespace backend_trial.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(new { Message = "Error retrieving your reviews", Error = ex.Message });
-            }
-        }
-
-        // Update a review (only own reviews)
-        [HttpPut("{id}")]
-        public async Task<ActionResult> UpdateReview(Guid id, [FromBody] ReviewRequestDto request)
-        {
-            try
-            {
-                if (!ModelState.IsValid)
-                {
-                    return BadRequest(ModelState);
-                }
-
-                if (string.IsNullOrWhiteSpace(request.Feedback))
-                {
-                    return BadRequest(new { Message = "Feedback is required" });
-                }
-
-                // Validate decision
-                if (!Enum.TryParse<ReviewDecision>(request.Decision, true, out var reviewDecision))
-                {
-                    return BadRequest(new { Message = "Invalid decision. Valid values are: Approve, Reject" });
-                }
-
-                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var managerGuid))
-                {
-                    return Unauthorized(new { Message = "User ID not found in token" });
-                }
-
-                var review = await _dbContext.Reviews
-                    .Include(r => r.Reviewer)
-                    .FirstOrDefaultAsync(r => r.ReviewId == id);
-
-                if (review == null)
-                {
-                    return NotFound(new { Message = "Review not found" });
-                }
-
-                // Check if user is the reviewer
-                if (review.ReviewerId != managerGuid)
-                {
-                    return Forbid("You can only update your own reviews");
-                }
-
-                review.Feedback = request.Feedback;
-                review.Decision = reviewDecision;
-                review.ReviewDate = DateTime.UtcNow;
-
-                _dbContext.Reviews.Update(review);
-                await _dbContext.SaveChangesAsync();
-
-                var response = new ReviewResponseDto
-                {
-                    ReviewId = review.ReviewId,
-                    IdeaId = review.IdeaId,
-                    ReviewerId = review.ReviewerId,
-                    ReviewerName = review.Reviewer.Name,
-                    Feedback = review.Feedback,
-                    Decision = review.Decision.ToString(),
-                    ReviewDate = review.ReviewDate
-                };
-
-                return Ok(new { Message = "Review updated successfully", Review = response });
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { Message = "Error updating review", Error = ex.Message });
-            }
-        }
-
-        // Delete a review (only own reviews)
-        [HttpDelete("{id}")]
-        public async Task<ActionResult> DeleteReview(Guid id)
-        {
-            try
-            {
-                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var managerGuid))
-                {
-                    return Unauthorized(new { Message = "User ID not found in token" });
-                }
-
-                var review = await _dbContext.Reviews.FirstOrDefaultAsync(r => r.ReviewId == id);
-                if (review == null)
-                {
-                    return NotFound(new { Message = "Review not found" });
-                }
-
-                // Check if user is the reviewer
-                if (review.ReviewerId != managerGuid)
-                {
-                    return Forbid("You can only delete your own reviews");
-                }
-
-                _dbContext.Reviews.Remove(review);
-                await _dbContext.SaveChangesAsync();
-
-                return Ok(new { Message = "Review deleted successfully" });
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { Message = "Error deleting review", Error = ex.Message });
+                return BadRequest(new { Message = "Error retrieving manager reviews", Error = ex.Message });
             }
         }
     }

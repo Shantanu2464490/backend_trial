@@ -12,6 +12,10 @@ namespace backend_trial.Models.Domain
         public Guid SubmittedByUserId { get; set; }
         public DateTime SubmittedDate { get; set; }
         public IdeaStatus Status { get; set; }
+        public Guid? ReviewedByUserId { get; set; }
+        public string? ReviewedByUserName { get; set; }
+        public DateTime? ReviewedDate { get; set; }
+        
         public Category Category { get; set; } = null!;
         public User SubmittedByUser { get; set; } = null!;
 

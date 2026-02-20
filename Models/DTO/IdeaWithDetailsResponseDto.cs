@@ -13,6 +13,8 @@ namespace backend_trial.Models.DTO
         public string Status { get; set; } = null!;
         public int Upvotes { get; set; }
         public int Downvotes { get; set; }
+        public Guid? ReviewedByUserId { get; set; }
+        public string? ReviewedByUserName { get; set; }
         public List<CommentResponseDto> Comments { get; set; } = new List<CommentResponseDto>();
         public List<ReviewResponseDto> Reviews { get; set; } = new List<ReviewResponseDto>();
     }

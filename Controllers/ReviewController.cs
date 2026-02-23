@@ -11,7 +11,6 @@ namespace backend_trial.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Manager")]
     public class ReviewController : ControllerBase
     {
         private readonly IdeaBoardDbContext _dbContext;

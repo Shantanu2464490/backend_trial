@@ -8,6 +8,7 @@ using backend_trial.Services;
 using backend_trial.Middlewares;
 using backend_trial.Repositories;
 using backend_trial.Services.Interfaces;
+using backend_trial.Repositories.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -60,12 +61,17 @@ builder.Services.AddDbContext<IdeaBoardDbContext>(options => options.UseSqlServe
 
 // Add Repositories
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
-builder.Services.AddScoped<backend_trial.Repositories.Interfaces.ICategoryRepository, CategoryRepository>();
+builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
+builder.Services.AddScoped<IReportsRepository, ReportsRepository>();
+
 
 // Add Services
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<ICategoryService, CategorieService>();
+builder.Services.AddScoped<IReportsService, ReportsService>();
+
+
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>

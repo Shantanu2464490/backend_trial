@@ -212,9 +212,19 @@ namespace backend_trial.Services
             return Task.FromResult((fileName, note));
         }
 
-        public Task<object?> GetEmployeeContributionsAsync(CancellationToken ct)
+        public async Task<IEnumerable<EmployeeContributionDto>> GetEmployeeContributionsAsync(CancellationToken ct = default)
         {
-            throw new NotImplementedException();
+            var contributions = await reportRepository.GetEmployeeContributionsAsync(ct);
+            return contributions.Select(c => new EmployeeContributionDto
+            {
+                UserId = c.UserId,
+                UserName = c.UserName,
+                IdeasSubmitted = c.IdeasSubmitted,
+                IdeasApproved = c.IdeasApproved,
+                CommentsPosted = c.CommentsPosted,
+                VotesGiven = c.VotesGiven,
+                ApprovalRate = c.IdeasSubmitted > 0 ? Math.Round((decimal)c.IdeasApproved / c.IdeasSubmitted * 100, 2) : 0
+            });
         }
     }
 }

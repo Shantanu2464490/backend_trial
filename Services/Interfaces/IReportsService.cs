@@ -17,6 +17,6 @@ namespace backend_trial.Services.Interfaces
 
         // Placeholder: Excel export
         Task<(string FileName, string Note)> ExportReportsToExcelAsync(CancellationToken ct = default);
-        Task<object?> GetEmployeeContributionsAsync(CancellationToken ct);
+        Task<IEnumerable<EmployeeContributionDto>> GetEmployeeContributionsAsync(CancellationToken ct = default);
     }
 }

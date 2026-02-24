@@ -1,0 +1,71 @@
+### Test Reports Controller Endpoints
+### Make sure to replace {{token}} with your actual JWT token
+
+@baseUrl = https://localhost:7175
+@token = YOUR_ADMIN_JWT_TOKEN_HERE
+
+### 1. Get System Overview
+GET {{baseUrl}}/api/reports/system-overview
+Authorization: Bearer {{token}}
+
+###
+
+### 2. Get Ideas Status Distribution
+GET {{baseUrl}}/api/reports/ideas/status-distribution
+Authorization: Bearer {{token}}
+
+###
+
+### 3. Get Category Reports
+GET {{baseUrl}}/api/reports/categories
+Authorization: Bearer {{token}}
+
+###
+
+### 4. Get Single Category Report (replace with actual categoryId)
+GET {{baseUrl}}/api/reports/category/YOUR-CATEGORY-ID-HERE
+Authorization: Bearer {{token}}
+
+###
+
+### 5. Get Ideas By Date Range
+GET {{baseUrl}}/api/reports/ideas/by-date?startDate=2024-01-01&endDate=2024-12-31
+Authorization: Bearer {{token}}
+
+###
+
+### 6. Get User Activity Report - FIXED
+GET {{baseUrl}}/api/reports/users/activity
+Authorization: Bearer {{token}}
+
+###
+
+### 7. Get Top Categories
+GET {{baseUrl}}/api/reports/top-categories?limit=10
+Authorization: Bearer {{token}}
+
+###
+
+### 8. Get Approval Trends - FIXED
+GET {{baseUrl}}/api/reports/approval-trends?months=6
+Authorization: Bearer {{token}}
+
+###
+
+### 9. Get Employee Contributions - FIXED
+GET {{baseUrl}}/api/reports/employee-contributions
+Authorization: Bearer {{token}}
+
+###
+
+### 10. Get Latest Ideas
+GET {{baseUrl}}/api/reports/ideas/latest?limit=5
+Authorization: Bearer {{token}}
+
+###
+
+### 11. Export Reports to Excel
+GET {{baseUrl}}/api/reports/export/excel
+Authorization: Bearer {{token}}
+
+###

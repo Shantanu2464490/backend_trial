@@ -70,8 +70,13 @@ namespace backend_trial.Repositories
 
         public async Task<List<CategoryAggregate>> GetCategoryAggregatesAsync(CancellationToken ct = default)
         {
-            // Pre-aggregate ideas by category
-            var ideaAgg = reportsRepository.Ideas.AsNoTracking()
+            // Get all categories
+            var categories = await reportsRepository.Categories.AsNoTracking()
+                .OrderBy(c => c.Name)
+                .ToListAsync(ct);
+
+            // Get idea aggregates by category
+            var ideaAgg = await reportsRepository.Ideas.AsNoTracking()
                 .GroupBy(i => i.CategoryId)
                 .Select(g => new
                 {
@@ -80,23 +85,26 @@ namespace backend_trial.Repositories
                     Approved = g.Count(i => i.Status == IdeaStatus.Approved),
                     Rejected = g.Count(i => i.Status == IdeaStatus.Rejected),
                     UnderReview = g.Count(i => i.Status == IdeaStatus.UnderReview)
-                });
+                })
+                .ToListAsync(ct);
 
-            var query =
-                from c in reportsRepository.Categories.AsNoTracking()
-                join a in ideaAgg on c.CategoryId equals a.CategoryId into agg
-                from a in agg.DefaultIfEmpty()
-                orderby (a != null ? a.Total : 0) descending
-                select new CategoryAggregate(
+            // Combine in memory
+            var result = categories.Select(c =>
+            {
+                var agg = ideaAgg.FirstOrDefault(a => a.CategoryId == c.CategoryId);
+                return new CategoryAggregate(
                     c.CategoryId,
                     c.Name,
-                    a != null ? a.Total : 0,
-                    a != null ? a.Approved : 0,
-                    a != null ? a.Rejected : 0,
-                    a != null ? a.UnderReview : 0
+                    agg?.Total ?? 0,
+                    agg?.Approved ?? 0,
+                    agg?.Rejected ?? 0,
+                    agg?.UnderReview ?? 0
                 );
+            })
+            .OrderByDescending(ca => ca.IdeasSubmitted)
+            .ToList();
 
-            return await query.ToListAsync(ct);
+            return result;
         }
 
         public async Task<CategoryAggregate?> GetSingleCategoryAggregateAsync(Guid categoryId, CancellationToken ct = default)
@@ -149,9 +157,20 @@ namespace backend_trial.Repositories
 
         public async Task<List<ApprovalTrendBucket>> GetApprovalTrendsAsync(DateTime startInclusive, CancellationToken ct = default)
         {
-            var q = await reportsRepository.Ideas.AsNoTracking()
+            // Get all ideas after start date
+            var ideas = await reportsRepository.Ideas.AsNoTracking()
                 .Where(i => i.SubmittedDate >= startInclusive)
-                .GroupBy(i => new { i.SubmittedDate.Year, i.SubmittedDate.Month })
+                .Select(i => new
+                {
+                    i.SubmittedDate.Year,
+                    i.SubmittedDate.Month,
+                    i.Status
+                })
+                .ToListAsync(ct);
+
+            // Group and aggregate in memory
+            var result = ideas
+                .GroupBy(i => new { i.Year, i.Month })
                 .Select(g => new ApprovalTrendBucket(
                     g.Key.Year,
                     g.Key.Month,
@@ -159,27 +178,70 @@ namespace backend_trial.Repositories
                     g.Count(i => i.Status == IdeaStatus.Approved)
                 ))
                 .OrderBy(x => x.Year).ThenBy(x => x.Month)
-                .ToListAsync(ct);
+                .ToList();
 
-            return q;
+            return result;
         }
 
         public async Task<List<EmployeeContribution>> GetEmployeeContributionsAsync(CancellationToken ct = default)
         {
-            var q = await reportsRepository.Users.AsNoTracking()
+            // Get active users
+            var users = await reportsRepository.Users.AsNoTracking()
                 .Where(u => u.Status == UserStatus.Active)
-                .Select(u => new EmployeeContribution(
-                    u.UserId,
-                    u.Name,
-                    u.SubmittedIdeas.Count(),
-                    u.SubmittedIdeas.Count(i => i.Status == IdeaStatus.Approved),
-                    u.Comments.Count(),
-                    u.Votes.Count()
-                ))
-                .OrderByDescending(e => e.IdeasSubmitted * 10 + e.CommentsPosted * 5 + e.VotesGiven)
+                .Select(u => new { u.UserId, u.Name })
                 .ToListAsync(ct);
 
-            return q;
+            // Get idea counts per user
+            var ideaCounts = await reportsRepository.Ideas.AsNoTracking()
+                .GroupBy(i => i.SubmittedByUserId)
+                .Select(g => new
+                {
+                    UserId = g.Key,
+                    IdeasSubmitted = g.Count(),
+                    IdeasApproved = g.Count(i => i.Status == IdeaStatus.Approved)
+                })
+                .ToListAsync(ct);
+
+            // Get comment counts per user
+            var commentCounts = await reportsRepository.Comments.AsNoTracking()
+                .GroupBy(c => c.UserId)
+                .Select(g => new
+                {
+                    UserId = g.Key,
+                    CommentsPosted = g.Count()
+                })
+                .ToListAsync(ct);
+
+            // Get vote counts per user
+            var voteCounts = await reportsRepository.Votes.AsNoTracking()
+                .GroupBy(v => v.UserId)
+                .Select(g => new
+                {
+                    UserId = g.Key,
+                    VotesGiven = g.Count()
+                })
+                .ToListAsync(ct);
+
+            // Combine in memory
+            var result = users.Select(u =>
+            {
+                var ideas = ideaCounts.FirstOrDefault(ic => ic.UserId == u.UserId);
+                var comments = commentCounts.FirstOrDefault(cc => cc.UserId == u.UserId);
+                var votes = voteCounts.FirstOrDefault(vc => vc.UserId == u.UserId);
+
+                return new EmployeeContribution(
+                    u.UserId,
+                    u.Name,
+                    ideas?.IdeasSubmitted ?? 0,
+                    ideas?.IdeasApproved ?? 0,
+                    comments?.CommentsPosted ?? 0,
+                    votes?.VotesGiven ?? 0
+                );
+            })
+            .OrderByDescending(e => e.IdeasSubmitted * 10 + e.CommentsPosted * 5 + e.VotesGiven)
+            .ToList();
+
+            return result;
         }
 
         public async Task<List<CategoryAggregate>> GetTopCategoryAggregatesAsync(int limit, CancellationToken ct = default)

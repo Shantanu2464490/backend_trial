@@ -1,10 +1,8 @@
-﻿using backend_trial.Data;
-using backend_trial.Models.Domain;
+﻿using System.Security.Claims;
 using backend_trial.Models.DTO;
+using backend_trial.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using System.Security.Claims;
 
 namespace backend_trial.Controllers
 {
@@ -12,305 +10,69 @@ namespace backend_trial.Controllers
     [ApiController]
     public class VoteController : ControllerBase
     {
-        private readonly IdeaBoardDbContext _dbContext;
+        private readonly IVoteService voteService;
 
-        public VoteController(IdeaBoardDbContext dbContext)
+        public VoteController(IVoteService voteService)
         {
-            _dbContext = dbContext;
+            this.voteService = voteService;
         }
 
-        // Get current user's vote status for an idea
-        [HttpGet("{ideaId}/user-vote")]
+        // GET: /api/vote/{ideaId}/user-vote
+        [HttpGet("{ideaId:guid}/user-vote")]
         [Authorize]
-        public async Task<ActionResult<UserVoteResponseDto>> GetUserVoteStatus(Guid ideaId)
+        public async Task<ActionResult<UserVoteResponseDto>> GetUserVoteStatus(Guid ideaId, CancellationToken ct)
         {
-            try
-            {
-                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var userGuid))
-                {
-                    return Unauthorized(new { Message = "User ID not found in token" });
-                }
-
-                // Check if idea exists
-                var idea = await _dbContext.Ideas.FirstOrDefaultAsync(i => i.IdeaId == ideaId);
-                if (idea == null)
-                {
-                    return NotFound(new { Message = "Idea not found" });
-                }
-
-                // Get user's vote for this idea
-                var userVote = await _dbContext.Votes
-                    .FirstOrDefaultAsync(v => v.IdeaId == ideaId && v.UserId == userGuid);
-
-                var response = new UserVoteResponseDto
-                {
-                    HasVoted = userVote != null,
-                    VoteType = userVote?.VoteType.ToString()
-                };
-
-                return Ok(response);
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { Message = "Error retrieving user vote status", Error = ex.Message });
-            }
+            var userId = GetCurrentUserIdOrThrow();
+            var dto = await voteService.GetUserVoteStatusAsync(ideaId, userId, ct);
+            return Ok(dto);
         }
 
-        // Add upvote to an idea
-        [HttpPost("{ideaId}/upvote")]
-        public async Task<ActionResult> AddUpvote(Guid ideaId)
+        // POST: /api/vote/{ideaId}/upvote
+        [HttpPost("{ideaId:guid}/upvote")]
+        [Authorize]
+        public async Task<IActionResult> AddUpvote(Guid ideaId, CancellationToken ct)
         {
-            try
-            {
-                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var userGuid))
-                {
-                    return Unauthorized(new { Message = "User ID not found in token" });
-                }
-
-                // Verify idea exists
-                var idea = await _dbContext.Ideas.FirstOrDefaultAsync(i => i.IdeaId == ideaId);
-                if (idea == null)
-                {
-                    return NotFound(new { Message = "Idea not found" });
-                }
-
-                // Check if user already voted on this idea
-                var existingVote = await _dbContext.Votes
-                    .FirstOrDefaultAsync(v => v.IdeaId == ideaId && v.UserId == userGuid);
-
-                if (existingVote != null)
-                {
-                    // If user already upvoted, return error
-                    if (existingVote.VoteType == VoteType.Upvote)
-                    {
-                        return BadRequest(new { Message = "You have already upvoted this idea" });
-                    }
-
-                    // If user downvoted before, remove the downvote comment and update vote
-                    var downvoteComment = await _dbContext.Comments
-                        .Where(c => c.IdeaId == ideaId && c.UserId == userGuid)
-                        .OrderByDescending(c => c.CreatedDate)
-                        .FirstOrDefaultAsync();
-
-                    if (downvoteComment != null)
-                    {
-                        _dbContext.Comments.Remove(downvoteComment);
-                    }
-
-                    existingVote.VoteType = VoteType.Upvote;
-                    _dbContext.Votes.Update(existingVote);
-                }
-                else
-                {
-                    // Create new upvote
-                    var vote = new Vote
-                    {
-                        VoteId = Guid.NewGuid(),
-                        IdeaId = ideaId,
-                        UserId = userGuid,
-                        VoteType = VoteType.Upvote
-                    };
-
-                    _dbContext.Votes.Add(vote);
-                }
-
-                await _dbContext.SaveChangesAsync();
-
-                var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.UserId == userGuid);
-                var vote_ = await _dbContext.Votes
-                    .FirstOrDefaultAsync(v => v.IdeaId == ideaId && v.UserId == userGuid);
-
-                var response = new VoteResponseDto
-                {
-                    VoteId = vote_.VoteId,
-                    IdeaId = vote_.IdeaId,
-                    UserId = vote_.UserId,
-                    UserName = user?.Name ?? "Unknown",
-                    VoteType = vote_.VoteType.ToString()
-                };
-
-                return Ok(new { Message = "Upvote added successfully", Vote = response });
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { Message = "Error adding upvote", Error = ex.Message });
-            }
+            var userId = GetCurrentUserIdOrThrow();
+            var vote = await voteService.AddUpvoteAsync(ideaId, userId, ct);
+            return Ok(new { Message = "Upvote added successfully", Vote = vote });
         }
 
-        // Add downvote to an idea with mandatory comment
-        [HttpPost("{ideaId}/downvote")]
-        public async Task<ActionResult> AddDownvote(Guid ideaId, [FromBody] VoteWithCommentRequestDto request)
+        // POST: /api/vote/{ideaId}/downvote
+        [HttpPost("{ideaId:guid}/downvote")]
+        [Authorize]
+        public async Task<IActionResult> AddDownvote(Guid ideaId, [FromBody] VoteWithCommentRequestDto request, CancellationToken ct)
         {
-            try
-            {
-                if (!ModelState.IsValid)
-                {
-                    return BadRequest(ModelState);
-                }
-
-                // Validate comment is provided for downvote
-                if (string.IsNullOrWhiteSpace(request.CommentText))
-                {
-                    return BadRequest(new { Message = "Comment is mandatory when downvoting. Please provide a reason for your downvote." });
-                }
-
-                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var userGuid))
-                {
-                    return Unauthorized(new { Message = "User ID not found in token" });
-                }
-
-                // Verify idea exists
-                var idea = await _dbContext.Ideas.FirstOrDefaultAsync(i => i.IdeaId == ideaId);
-                if (idea == null)
-                {
-                    return NotFound(new { Message = "Idea not found" });
-                }
-
-                // Check if user already voted on this idea
-                var existingVote = await _dbContext.Votes
-                    .FirstOrDefaultAsync(v => v.IdeaId == ideaId && v.UserId == userGuid);
-
-                var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.UserId == userGuid);
-                if (user == null)
-                {
-                    return Unauthorized(new { Message = "User not found" });
-                }
-
-                if (existingVote != null)
-                {
-                    // If user already downvoted, return error
-                    if (existingVote.VoteType == VoteType.Downvote)
-                    {
-                        return BadRequest(new { Message = "You have already downvoted this idea" });
-                    }
-
-                    // If user upvoted before, remove upvote and add downvote with comment
-                    existingVote.VoteType = VoteType.Downvote;
-                    _dbContext.Votes.Update(existingVote);
-                }
-                else
-                {
-                    // Create new downvote
-                    var vote = new Vote
-                    {
-                        VoteId = Guid.NewGuid(),
-                        IdeaId = ideaId,
-                        UserId = userGuid,
-                        VoteType = VoteType.Downvote
-                    };
-
-                    _dbContext.Votes.Add(vote);
-                }
-
-                // Add mandatory comment for downvote
-                var comment = new Comment
-                {
-                    CommentId = Guid.NewGuid(),
-                    IdeaId = ideaId,
-                    UserId = userGuid,
-                    Text = request.CommentText,
-                    CreatedDate = DateTime.UtcNow
-                };
-
-                _dbContext.Comments.Add(comment);
-                await _dbContext.SaveChangesAsync();
-
-                var vote_ = await _dbContext.Votes
-                    .FirstOrDefaultAsync(v => v.IdeaId == ideaId && v.UserId == userGuid);
-
-                var response = new VoteResponseDto
-                {
-                    VoteId = vote_.VoteId,
-                    IdeaId = vote_.IdeaId,
-                    UserId = vote_.UserId,
-                    UserName = user.Name,
-                    VoteType = vote_.VoteType.ToString()
-                };
-
-                return Ok(new { Message = "Downvote added successfully with comment", Vote = response });
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { Message = "Error adding downvote", Error = ex.Message });
-            }
+            // [ApiController] automatically returns 400 if ModelState is invalid
+            var userId = GetCurrentUserIdOrThrow();
+            var vote = await voteService.AddDownvoteAsync(ideaId, userId, request.CommentText, ct);
+            return Ok(new { Message = "Downvote added successfully with comment", Vote = vote });
         }
 
-        // Remove vote (can upvote/downvote again after removing)
-        [HttpDelete("{ideaId}")]
-        public async Task<ActionResult> RemoveVote(Guid ideaId)
+        // DELETE: /api/vote/{ideaId}
+        [HttpDelete("{ideaId:guid}")]
+        [Authorize]
+        public async Task<IActionResult> RemoveVote(Guid ideaId, CancellationToken ct)
         {
-            try
-            {
-                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var userGuid))
-                {
-                    return Unauthorized(new { Message = "User ID not found in token" });
-                }
-
-                // Find the vote
-                var vote = await _dbContext.Votes
-                    .FirstOrDefaultAsync(v => v.IdeaId == ideaId && v.UserId == userGuid);
-
-                if (vote == null)
-                {
-                    return NotFound(new { Message = "Vote not found" });
-                }
-
-                // If it was a downvote, remove the associated comment
-                if (vote.VoteType == VoteType.Downvote)
-                {
-                    var comment = await _dbContext.Comments
-                        .Where(c => c.IdeaId == ideaId && c.UserId == userGuid)
-                        .OrderByDescending(c => c.CreatedDate)
-                        .FirstOrDefaultAsync();
-
-                    if (comment != null)
-                    {
-                        _dbContext.Comments.Remove(comment);
-                    }
-                }
-
-                _dbContext.Votes.Remove(vote);
-                await _dbContext.SaveChangesAsync();
-
-                return Ok(new { Message = "Vote removed successfully" });
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { Message = "Error removing vote", Error = ex.Message });
-            }
+            var userId = GetCurrentUserIdOrThrow();
+            await voteService.RemoveVoteAsync(ideaId, userId, ct);
+            return Ok(new { Message = "Vote removed successfully" });
         }
 
-        // Get all votes for an idea
-        [HttpGet("{ideaId}")]
+        // GET: /api/vote/{ideaId}
+        [HttpGet("{ideaId:guid}")]
         [AllowAnonymous]
-        public async Task<ActionResult> GetVotesForIdea(Guid ideaId)
+        public async Task<IActionResult> GetVotesForIdea(Guid ideaId, CancellationToken ct)
         {
-            try
-            {
-                var votes = await _dbContext.Votes
-                    .Where(v => v.IdeaId == ideaId)
-                    .Include(v => v.User)
-                    .Select(v => new VoteResponseDto
-                    {
-                        VoteId = v.VoteId,
-                        IdeaId = v.IdeaId,
-                        UserId = v.UserId,
-                        UserName = v.User.Name,
-                        VoteType = v.VoteType.ToString()
-                    })
-                    .ToListAsync();
+            var votes = await voteService.GetVotesForIdeaAsync(ideaId, ct);
+            return Ok(votes);
+        }
 
-                return Ok(votes);
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { Message = "Error retrieving votes", Error = ex.Message });
-            }
+        private Guid GetCurrentUserIdOrThrow()
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrWhiteSpace(userId) || !Guid.TryParse(userId, out var userGuid))
+                throw new ("User ID not found in token");
+            return userGuid;
         }
     }
 }
-

@@ -1,5 +1,6 @@
 using backend_trial.Data;
 using backend_trial.Models.Domain;
+using backend_trial.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
 namespace backend_trial.Services

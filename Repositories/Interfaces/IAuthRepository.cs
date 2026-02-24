@@ -1,6 +1,6 @@
 ﻿using backend_trial.Models.DTO.Auth;
 
-namespace backend_trial.Repositories
+namespace backend_trial.Repositories.Interfaces
 {
     public interface IAuthRepository
     {

@@ -1,7 +1,8 @@
 ﻿using backend_trial.Data;
 using backend_trial.Models.Domain;
 using backend_trial.Models.DTO.Auth;
-using backend_trial.Services;
+using backend_trial.Repositories.Interfaces;
+using backend_trial.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
 namespace backend_trial.Repositories

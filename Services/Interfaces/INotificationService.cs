@@ -1,6 +1,6 @@
 using backend_trial.Models.Domain;
 
-namespace backend_trial.Services
+namespace backend_trial.Services.Interfaces
 {
     public interface INotificationService
     {

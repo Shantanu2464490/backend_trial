@@ -1,5 +1,5 @@
 ﻿using backend_trial.Models.DTO.Auth;
-using backend_trial.Repositories;
+using backend_trial.Repositories.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
 namespace backend_trial.Controllers

@@ -85,26 +85,26 @@ namespace backend_trial.Repositories
             return (true, successMessage);
         }
 
-        public async Task<(bool Success, AuthResponseDto? User, string Message)> LoginAsync(LoginRequestDto request)
+        public async Task<(bool Success, AuthResponseDto? User, string Message, int statusCode)> LoginAsync(LoginRequestDto request)
         {
             // Find user by email
             var user = await context.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
 
             if (user == null)
             {
-                return (false, null, "Invalid email or password.");
+                return (false, null, "Invalid email or password.", 401);
             }
 
             // Verify password
             if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
             {
-                return (false, null, "Invalid email or password.");
+                return (false, null, "Invalid email or password.", 401);
             }
 
             // Check if user is active
             if (user.Status != UserStatus.Active)
             {
-                return (false, null, "Your account is not active. Please contact an administrator.");
+                return (false, null, "Your account is not active. Please contact an administrator.", 403);
             }
 
             // Generate Jwt token
@@ -120,7 +120,7 @@ namespace backend_trial.Repositories
                 Token = token
             };
 
-            return (true, response, "Login successful.");
+            return (true, response, "Login successful.", 200);
         }
     }
 }

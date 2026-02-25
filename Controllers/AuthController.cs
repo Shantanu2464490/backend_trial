@@ -19,6 +19,12 @@ namespace backend_trial.Controllers
         [Route("register")]
         public async Task<ActionResult<AuthResponseWrapper>> Register([FromBody] RegisterRequestDto request)
         {
+
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
             var (success, message) = await authRepository.RegisterAsync(request);
 
             if (!success)
@@ -43,15 +49,21 @@ namespace backend_trial.Controllers
         [Route("login")]
         public async Task<ActionResult<AuthResponseWrapper>> Login([FromBody] LoginRequestDto request)
         {
-            var (success, user, message) = await authRepository.LoginAsync(request);
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var (success, user, message, statusCode) = await authRepository.LoginAsync(request);
 
             if (!success)
             {
-                return Unauthorized(new AuthResponseWrapper
+                return StatusCode(statusCode, new AuthResponseWrapper
                 {
                     Success = false,
                     Message = message,
-                    Data = null
+                    Data = null,
+                    responseCode = statusCode
                 });
             }
 
@@ -59,7 +71,8 @@ namespace backend_trial.Controllers
             {
                 Success = true,
                 Message = message,
-                Data = user
+                Data = user,
+                responseCode = statusCode
             });
         }
     }

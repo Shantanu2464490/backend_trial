@@ -6,6 +6,6 @@ namespace backend_trial.Repositories.Interfaces
     {
         Task<bool> UserExistsAsync(string email);
         Task<(bool Success, string Message)> RegisterAsync(RegisterRequestDto request);
-        Task<(bool Success, AuthResponseDto? User, string Message)> LoginAsync(LoginRequestDto request);
+        Task<(bool Success, AuthResponseDto? User, string Message, int statusCode)> LoginAsync(LoginRequestDto request);
     }
 }

@@ -131,22 +131,22 @@ namespace backend_trial.Services
             if (newStatus == IdeaStatus.Rejected && string.IsNullOrWhiteSpace(comment))
                 throw new ("Comment is required when rejecting");
 
-            // Only reviewer can change after review
             if (idea.Status != IdeaStatus.UnderReview &&
                 idea.ReviewedByUserId != managerId)
                 throw new ("Only original reviewer can change status");
 
-            var oldStatus = idea.Status;
+            var manager = await reviewRepository.GetUserAsync(managerId, ct);
+
             idea.Status = newStatus;
             idea.ReviewComment = comment;
             idea.ReviewedByUserId = managerId;
+            idea.ReviewedByUserName = manager?.Name ?? "Manager";
 
             await reviewRepository.UpdateIdeaAsync(idea, ct);
             await reviewRepository.SaveChangesAsync(ct);
 
             if (newStatus == IdeaStatus.Rejected || newStatus == IdeaStatus.Approved)
             {
-                var manager = await reviewRepository.GetUserAsync(managerId, ct);
                 var decision = newStatus == IdeaStatus.Approved ? "Approved" : "Rejected";
                 await notificationService.CreateManagerDecisionNotificationAsync(
                     idea.IdeaId, idea.Title, idea.SubmittedByUserId, managerId, manager?.Name ?? "Manager", decision);

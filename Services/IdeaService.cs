@@ -228,9 +228,9 @@ namespace backend_trial.Services
                 throw new UnauthorizedAccessException("You can only delete your own ideas");
             }
 
-            if (idea.Status != IdeaStatus.Rejected)
+            if (idea.Status == IdeaStatus.Approved)
             {
-                throw new InvalidOperationException("You can only delete ideas in Draft status");
+                throw new InvalidOperationException("You cannot delete approved ideas");
             }
 
             await ideaRepository.DeleteAsync(idea, ct);

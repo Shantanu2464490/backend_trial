@@ -86,7 +86,7 @@ namespace backend_trial.Controllers
             return Ok(new { Message = "Idea updated successfully", Idea = responseIdea });
         }
 
-        // Delete idea (Employee can only delete their own ideas in Draft status)
+        // Delete idea (Employee can only delete their own ideas that are not Approved)
         [HttpDelete("{id}")]
         public async Task<ActionResult> DeleteIdea(Guid id)
         {

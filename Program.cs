@@ -9,6 +9,9 @@ using backend_trial.Middlewares;
 using backend_trial.Repositories;
 using backend_trial.Services.Interfaces;
 using backend_trial.Repositories.Interfaces;
+using FluentValidation;
+using backend_trial.Models.DTO.Auth;
+using backend_trial.Validators;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -79,6 +82,10 @@ builder.Services.AddScoped<IReviewService, ReviewService>();
 builder.Services.AddScoped<ICommentService, CommentService>();
 builder.Services.AddScoped<IIdeaService, IdeaService>();
 builder.Services.AddScoped<IUserManagementService, UserManagementService>();
+
+// Add validators
+builder.Services.AddScoped<IValidator<LoginRequestDto>, LoginRequestValidator>();
+builder.Services.AddScoped<IValidator<RegisterRequestDto>, RegisterRequestValidator>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>

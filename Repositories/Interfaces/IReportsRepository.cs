@@ -24,12 +24,6 @@ namespace backend_trial.Repositories.Interfaces
         int IdeasUnderReview
     );
 
-    public record ApprovalTrendBucket(
-        int Year,
-        int Month,
-        int IdeasSubmitted,
-        int IdeasApproved
-    );
 
     public record EmployeeContribution(
         Guid UserId,
@@ -60,7 +54,6 @@ namespace backend_trial.Repositories.Interfaces
         Task<CategoryAggregate?> GetSingleCategoryAggregateAsync(Guid categoryId, CancellationToken ct = default);
 
         Task<List<DateBucketAggregate>> GetIdeasByDateRangeAggregatesAsync(DateTime start, DateTime end, CancellationToken ct = default);
-        Task<List<ApprovalTrendBucket>> GetApprovalTrendsAsync(DateTime startInclusive, CancellationToken ct = default);
 
         Task<List<EmployeeContribution>> GetEmployeeContributionsAsync(CancellationToken ct = default);
         Task<List<CategoryAggregate>> GetTopCategoryAggregatesAsync(int limit, CancellationToken ct = default);

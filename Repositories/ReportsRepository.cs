@@ -155,33 +155,6 @@ namespace backend_trial.Repositories
             return query;
         }
 
-        public async Task<List<ApprovalTrendBucket>> GetApprovalTrendsAsync(DateTime startInclusive, CancellationToken ct = default)
-        {
-            // Get all ideas after start date
-            var ideas = await reportsRepository.Ideas.AsNoTracking()
-                .Where(i => i.SubmittedDate >= startInclusive)
-                .Select(i => new
-                {
-                    i.SubmittedDate.Year,
-                    i.SubmittedDate.Month,
-                    i.Status
-                })
-                .ToListAsync(ct);
-
-            // Group and aggregate in memory
-            var result = ideas
-                .GroupBy(i => new { i.Year, i.Month })
-                .Select(g => new ApprovalTrendBucket(
-                    g.Key.Year,
-                    g.Key.Month,
-                    g.Count(),
-                    g.Count(i => i.Status == IdeaStatus.Approved)
-                ))
-                .OrderBy(x => x.Year).ThenBy(x => x.Month)
-                .ToList();
-
-            return result;
-        }
 
         public async Task<List<EmployeeContribution>> GetEmployeeContributionsAsync(CancellationToken ct = default)
         {

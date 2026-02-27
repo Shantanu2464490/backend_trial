@@ -12,11 +12,8 @@ namespace backend_trial.Services.Interfaces
         Task<IEnumerable<IdeasByDateDto>> GetIdeasByDateRangeAsync(DateTime? startDate, DateTime? endDate, CancellationToken ct = default);
         Task<UserActivityReportDto> GetUserActivityReportAsync(CancellationToken ct = default);
         Task<IEnumerable<CategoryReportDto>> GetTopCategoriesAsync(int limit, CancellationToken ct = default);
-        Task<IEnumerable<ApprovalTrendItemDto>> GetApprovalTrendsAsync(int months, CancellationToken ct = default);
         Task<IEnumerable<LatestIdeaDto>> GetLatestIdeasAsync(int limit, CancellationToken ct = default);
 
-        // Placeholder: Excel export
-        Task<(string FileName, string Note)> ExportReportsToExcelAsync(CancellationToken ct = default);
         Task<IEnumerable<EmployeeContributionDto>> GetEmployeeContributionsAsync(CancellationToken ct = default);
     }
 }

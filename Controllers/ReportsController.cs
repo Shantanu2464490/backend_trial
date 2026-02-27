@@ -100,19 +100,6 @@ namespace backend_trial.Controllers
             }
         }
 
-        [HttpGet("approval-trends")]
-        public async Task<IActionResult> GetApprovalTrends([FromQuery] int months = 6, CancellationToken ct = default)
-        {
-            try
-            {
-                var result = await reportsService.GetApprovalTrendsAsync(months, ct);
-                return Ok(result);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { error = ex.Message, detail = ex.InnerException?.Message });
-            }
-        }
 
         [HttpGet("employee-contributions")]
         public async Task<IActionResult> GetEmployeeContributions(CancellationToken ct)
@@ -135,20 +122,6 @@ namespace backend_trial.Controllers
             {
                 var result = await reportsService.GetLatestIdeasAsync(limit, ct);
                 return Ok(result);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { error = ex.Message, detail = ex.InnerException?.Message });
-            }
-        }
-
-        [HttpGet("export/excel")]
-        public async Task<IActionResult> ExportReportsToExcel(CancellationToken ct)
-        {
-            try
-            {
-                var (fileName, note) = await reportsService.ExportReportsToExcelAsync(ct);
-                return Ok(new { fileName, note });
             }
             catch (Exception ex)
             {

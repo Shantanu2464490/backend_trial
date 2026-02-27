@@ -176,20 +176,6 @@ namespace backend_trial.Services
             });
         }
 
-        public async Task<IEnumerable<ApprovalTrendItemDto>> GetApprovalTrendsAsync(int months, CancellationToken ct = default)
-        {
-            var start = DateTime.UtcNow.AddMonths(-months);
-            var buckets = await reportRepository.GetApprovalTrendsAsync(start, ct);
-
-            return buckets.Select(b => new ApprovalTrendItemDto
-            {
-                Month = $"{b.Year}-{b.Month:D2}",
-                IdeasSubmitted = b.IdeasSubmitted,
-                IdeasApproved = b.IdeasApproved,
-                ApprovalRate = b.IdeasSubmitted > 0 ? Math.Round((decimal)b.IdeasApproved / b.IdeasSubmitted * 100, 2) : 0
-            });
-        }
-
         public async Task<IEnumerable<LatestIdeaDto>> GetLatestIdeasAsync(int limit, CancellationToken ct = default)
         {
             var latest = await reportRepository.GetLatestIdeasAsync(limit, ct);
@@ -203,13 +189,6 @@ namespace backend_trial.Services
                 Status = i.Status.ToString(),
                 SubmittedDate = i.SubmittedDate
             });
-        }
-
-        public Task<(string FileName, string Note)> ExportReportsToExcelAsync(CancellationToken ct = default)
-        {
-            var fileName = $"reports-{DateTime.UtcNow:yyyy-MM-dd}.xlsx";
-            var note = "Excel export placeholder — implement with EPPlus or ClosedXML in production.";
-            return Task.FromResult((fileName, note));
         }
 
         public async Task<IEnumerable<EmployeeContributionDto>> GetEmployeeContributionsAsync(CancellationToken ct = default)

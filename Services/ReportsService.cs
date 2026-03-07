@@ -17,22 +17,23 @@ namespace backend_trial.Services
 
         public async Task<SystemOverviewDto> GetSystemOverviewAsync(CancellationToken ct = default)
         {
+            // Fetch all necessary counts and aggregates in parallel
             var ideaCounts = await reportRepository.GetIdeaCountsAsync(ct);
             var userCounts = await reportRepository.GetUserCountsAsync(ct);
             var categoryCounts = await reportRepository.GetCategoryCountsAsync(ct);
             var categoryAggs = await reportRepository.GetCategoryAggregatesAsync(ct);
-
+            // Calculate approval rate and status distribution
             decimal approvalRate = ideaCounts.Total > 0
                 ? Math.Round((decimal)ideaCounts.Approved / ideaCounts.Total * 100, 2)
                 : 0;
-
+            // Build status distribution list
             var statusDist = new List<IdeaStatusDistributionItemDto>
             {
                 new() { Status = "Approved", Count = ideaCounts.Approved, Percentage = ideaCounts.Total > 0 ? Math.Round((decimal)ideaCounts.Approved / ideaCounts.Total * 100, 2) : 0 },
                 new() { Status = "Rejected", Count = ideaCounts.Rejected, Percentage = ideaCounts.Total > 0 ? Math.Round((decimal)ideaCounts.Rejected / ideaCounts.Total * 100, 2) : 0 },
                 new() { Status = "UnderReview", Count = ideaCounts.UnderReview, Percentage = ideaCounts.Total > 0 ? Math.Round((decimal)ideaCounts.UnderReview / ideaCounts.Total * 100, 2) : 0 },
             };
-
+            // Build category reports
             var categoryReports = categoryAggs.Select(a => new CategoryReportDto
             {
                 CategoryId = a.CategoryId,
@@ -43,7 +44,7 @@ namespace backend_trial.Services
                 UnderReviewIdeas = a.UnderReviewIdeas,
                 ApprovalRate = a.IdeasSubmitted > 0 ? Math.Round((decimal)a.ApprovedIdeas / a.IdeasSubmitted * 100, 2) : 0
             });
-
+            // Construct and return the system overview DTO
             return new SystemOverviewDto
             {
                 TotalIdeas = ideaCounts.Total,
@@ -64,9 +65,10 @@ namespace backend_trial.Services
 
         public async Task<IEnumerable<IdeaStatusDistributionItemDto>> GetIdeasStatusDistributionAsync(CancellationToken ct = default)
         {
+            // Fetch idea counts and calculate distribution
             var ideaCounts = await reportRepository.GetIdeaCountsAsync(ct);
             int total = ideaCounts.Total;
-
+            // Build and return the status distribution list
             return new[]
             {
                 new IdeaStatusDistributionItemDto { Status = "Approved", Count = ideaCounts.Approved, Percentage = total > 0 ? Math.Round((decimal)ideaCounts.Approved / total * 100, 2) : 0 },
@@ -77,7 +79,9 @@ namespace backend_trial.Services
 
         public async Task<IEnumerable<CategoryReportDto>> GetCategoryReportsAsync(CancellationToken ct = default)
         {
+            // Fetch category aggregates and build report DTOs
             var aggs = await reportRepository.GetCategoryAggregatesAsync(ct);
+            
             return aggs.Select(a => new CategoryReportDto
             {
                 CategoryId = a.CategoryId,
@@ -92,10 +96,11 @@ namespace backend_trial.Services
 
         public async Task<CategoryReportDto> GetCategoryReportAsync(Guid categoryId, CancellationToken ct = default)
         {
+            // Fetch aggregate for the specific category and build report DTO
             var agg = await reportRepository.GetSingleCategoryAggregateAsync(categoryId, ct);
             if (agg is null)
                 throw new("Category not found");
-
+            // Build and return the category report DTO
             return new CategoryReportDto
             {
                 CategoryId = agg.CategoryId,
@@ -110,9 +115,12 @@ namespace backend_trial.Services
 
         public async Task<IEnumerable<IdeasByDateDto>> GetIdeasByDateRangeAsync(DateTime? startDate, DateTime? endDate, CancellationToken ct = default)
         {
+            // Set default date range to last 30 days if not provided
             var start = startDate ?? DateTime.UtcNow.AddMonths(-1);
             var end = endDate ?? DateTime.UtcNow;
 
+
+            // Fetch idea counts grouped by date for the specified range and build DTOs
             var buckets = await reportRepository.GetIdeasByDateRangeAggregatesAsync(start, end, ct);
             return buckets.Select(b => new IdeasByDateDto
             {
@@ -126,6 +134,7 @@ namespace backend_trial.Services
 
         public async Task<UserActivityReportDto> GetUserActivityReportAsync(CancellationToken ct = default)
         {
+            // Fetch user counts
             var userCounts = await reportRepository.GetUserCountsAsync(ct);
 
             // For averages and engagement we need some totals:
@@ -146,6 +155,7 @@ namespace backend_trial.Services
                 ? Math.Round((decimal)(usersWithIdeas + usersWithComments + usersWithVotes) / (userCounts.TotalUsers * 3) * 100, 2)
                 : 0;
 
+            // Construct and return the user activity report DTO
             return new UserActivityReportDto
             {
                 TotalUsers = userCounts.TotalUsers,
@@ -163,6 +173,7 @@ namespace backend_trial.Services
 
         public async Task<IEnumerable<CategoryReportDto>> GetTopCategoriesAsync(int limit, CancellationToken ct = default)
         {
+            // Fetch top category aggregates based on idea submissions and build report DTOs
             var aggs = await reportRepository.GetTopCategoryAggregatesAsync(limit, ct);
             return aggs.Select(a => new CategoryReportDto
             {
@@ -178,6 +189,7 @@ namespace backend_trial.Services
 
         public async Task<IEnumerable<LatestIdeaDto>> GetLatestIdeasAsync(int limit, CancellationToken ct = default)
         {
+            // Fetch the latest ideas and build DTOs
             var latest = await reportRepository.GetLatestIdeasAsync(limit, ct);
             return latest.Select(i => new LatestIdeaDto
             {
@@ -193,6 +205,7 @@ namespace backend_trial.Services
 
         public async Task<IEnumerable<EmployeeContributionDto>> GetEmployeeContributionsAsync(CancellationToken ct = default)
         {
+            // Fetch employee contributions and build DTOs
             var contributions = await reportRepository.GetEmployeeContributionsAsync(ct);
             return contributions.Select(c => new EmployeeContributionDto
             {

@@ -19,16 +19,16 @@ namespace backend_trial.Services
 
         public async Task<(bool Success, string Message)> RegisterAsync(RegisterRequestDto request)
         {
-            // 1) Check duplicate email
+            //  Check duplicate email
             var exists = await authRepository.UserExistsAsync(request.Email);
             if (exists)
                 return (false, "User with this email already exists.");
 
-            // 2) Validate role
+            // Validate role
             if (!Enum.TryParse<UserRole>(request.Role, true, out var role))
                 return (false, "Invalid role. Must be 'Employee', 'Manager', or 'Admin'.");
 
-            // 3) Decide status per role (business rule)
+            // Decide status per role (business rule)
             var status = UserStatus.Active;
 
             if (role == UserRole.Manager)
@@ -46,10 +46,10 @@ namespace backend_trial.Services
                 status = adminCount == 0 ? UserStatus.Active : UserStatus.Inactive;
             }
 
-            // 4) Hash password (business concern; repo shouldn't do crypto)
+            //  Hash password (business concern; repo shouldn't do crypto)
             var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
 
-            // 5) Build domain model (service decides values)
+            // Build domain model (service decides values)
             var user = new User
             {
                 Name = request.Name,
@@ -59,10 +59,10 @@ namespace backend_trial.Services
                 Status = status
             };
 
-            // 6) Persist via repository (pure data operation)
+            //  Persist via repository (pure data operation)
             await authRepository.CreateUserAsync(user);
 
-            // 7) Business message
+            //  Business message
             string successMessage =
                 role == UserRole.Manager
                     ? "Registration successful. Your account is inactive. An admin must activate it before you can login."
@@ -75,20 +75,20 @@ namespace backend_trial.Services
 
         public async Task<(bool Success, AuthResponseDto? User, string Message, int statusCode)> LoginAsync(LoginRequestDto request)
         {
-            // 1) Lookup user
+            //  Lookup user
             var user = await authRepository.GetUserByEmailAsync(request.Email);
             if (user == null)
                 return (false, null, "Invalid email or password.", 401);
 
-            // 2) Verify password
+            //  Verify password
             if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
                 return (false, null, "Invalid email or password.", 401);
 
-            // 3) Check status
+            //  Check status
             if (user.Status != UserStatus.Active)
                 return (false, null, "Your account is not active. Please contact an administrator.", 403);
 
-            // 4) Issue token (business concern)
+            //  Issue token (business concern)
             var token = tokenService.CreateJwtToken(user);
 
             var response = new AuthResponseDto

@@ -17,8 +17,10 @@ namespace backend_trial.Services
 
         public async Task<UserVoteResponseDto> GetUserVoteStatusAsync(Guid ideaId, Guid currentUserId, CancellationToken ct = default)
         {
+             
             await EnsureIdeaExists(ideaId, ct);
 
+            // We can return early if the user doesn't exist, but we want to ensure the idea exists first to avoid unnecessary user lookups for invalid ideas.
             var existing = await voteRepository.GetUserVoteAsync(currentUserId, ideaId, ct);
 
             return new UserVoteResponseDto
@@ -30,9 +32,11 @@ namespace backend_trial.Services
 
         public async Task<VoteResponseDto> AddUpvoteAsync(Guid ideaId, Guid currentUserId, CancellationToken ct = default)
         {
+            
             await EnsureIdeaExists(ideaId, ct);
             var user = await EnsureUserExists(currentUserId, ct);
 
+            // If the user has already voted, we need to check if it's an upvote or downvote
             var existing = await voteRepository.GetUserVoteAsync(currentUserId, ideaId, ct);
             if (existing != null)
             {
@@ -77,12 +81,13 @@ namespace backend_trial.Services
 
         public async Task<VoteResponseDto> AddDownvoteAsync(Guid ideaId, Guid currentUserId, string commentText, CancellationToken ct = default)
         {
+            // Downvotes require a comment, so we validate that first before doing any database lookups
             if (string.IsNullOrWhiteSpace(commentText))
                 throw new ("Comment is mandatory when downvoting. Please provide a reason for your downvote.");
-
+            
             await EnsureIdeaExists(ideaId, ct);
             var user = await EnsureUserExists(currentUserId, ct);
-
+            // If the user has already voted, we need to check if it's an upvote or downvote
             var existing = await voteRepository.GetUserVoteAsync(currentUserId, ideaId, ct);
 
             if (existing != null)
@@ -115,10 +120,11 @@ namespace backend_trial.Services
                 Text = commentText,
                 CreatedDate = DateTime.UtcNow
             };
+            // adding comment 
             await voteRepository.AddCommentAsync(comment, ct);
 
             await voteRepository.SaveChangesAsync(ct);
-
+            // Fetch the final vote after saving
             var final = await voteRepository.GetUserVoteAsync(currentUserId, ideaId, ct)!;
 
             return new VoteResponseDto
@@ -134,24 +140,26 @@ namespace backend_trial.Services
         public async Task RemoveVoteAsync(Guid ideaId, Guid currentUserId, CancellationToken ct = default)
         {
             await EnsureIdeaExists(ideaId, ct);
-
+            // checking is vote exists
             var vote = await voteRepository.GetUserVoteAsync(currentUserId, ideaId, ct);
             if (vote == null)
                 throw new ("Vote not found");
 
+            // If it's a downvote, we also need to remove the associated comment
             if (vote.VoteType == VoteType.Downvote)
             {
                 var latestComment = await voteRepository.GetLatestCommentForUserIdeaAsync(currentUserId, ideaId, ct);
                 if (latestComment != null)
                     await voteRepository.RemoveCommentAsync(latestComment, ct);
             }
-
+            // Remove the vote itself
             await voteRepository.RemoveVoteAsync(vote, ct);
             await voteRepository.SaveChangesAsync(ct);
         }
 
         public async Task<IEnumerable<VoteResponseDto>> GetVotesForIdeaAsync(Guid ideaId, CancellationToken ct = default)
         {
+            
             var tuples = await voteRepository.GetVotesForIdeaWithUserAsync(ideaId, ct);
             return tuples.Select(t => new VoteResponseDto
             {
@@ -165,12 +173,14 @@ namespace backend_trial.Services
 
         private async Task EnsureIdeaExists(Guid ideaId, CancellationToken ct)
         {
+            // We check if the idea exists first before doing any user lookups to avoid unnecessary database calls for invalid ideas.
             if (!await voteRepository.IdeaExistsAsync(ideaId, ct))
                 throw new("Idea not found");
         }
 
-        private async Task<backend_trial.Models.Domain.User> EnsureUserExists(Guid userId, CancellationToken ct)
+        private async Task<User> EnsureUserExists(Guid userId, CancellationToken ct)
         {
+            // checking is the user exists
             var user = await voteRepository.GetUserAsync(userId, ct);
             if (user == null)
                 throw new("User not found");

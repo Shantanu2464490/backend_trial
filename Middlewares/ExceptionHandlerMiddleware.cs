@@ -22,10 +22,11 @@ namespace backend_trial.Middlewares
             }
             catch(Exception ex)
             {
+                // generating new id
                 var errorId = Guid.NewGuid(); 
 
-                // Logging the exception
-                logger.LogError(ex, $"{errorId} : {ex.Message}");
+                // Logging the exception with time
+                logger.LogError(ex, $"{errorId} : {ex.Message}" , DateTime.Now);
 
                 // Createing a custom Error response
                 httpContext.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
@@ -36,7 +37,7 @@ namespace backend_trial.Middlewares
                     Id = errorId,
                     ErrorMessage = "Something went wrong! We are looking into resolving this. "
                 };
-
+                // Returning back the response
                 await httpContext.Response.WriteAsJsonAsync(error);
             }
         }

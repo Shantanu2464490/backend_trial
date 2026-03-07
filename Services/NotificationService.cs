@@ -16,11 +16,12 @@ namespace backend_trial.Services
 
         public async Task CreateNewIdeaNotificationAsync(Guid ideaId, string ideaTitle, Guid submittedByUserId)
         {
+            // Notify all active users except the one who submitted the idea
             var activeUsers = await _dbContext.Users
                 .Where(u => u.Status == UserStatus.Active && u.UserId != submittedByUserId)
                 .Select(u => u.UserId)
                 .ToListAsync();
-
+            // Create notifications for each active user
             var notifications = activeUsers.Select(uid => new Notification
             {
                 NotificationId = Guid.NewGuid(),
@@ -31,13 +32,14 @@ namespace backend_trial.Services
                 CreatedDate = DateTime.UtcNow,
                 IdeaId = ideaId
             });
-
+            // Save notifications to the database
             _dbContext.Notifications.AddRange(notifications);
             await _dbContext.SaveChangesAsync();
         }
 
         public async Task CreateManagerDecisionNotificationAsync(Guid ideaId, string ideaTitle, Guid submittedByUserId, Guid reviewerId, string reviewerName, string decision)
         {
+            // Notify the idea submitter about the manager's decision
             try
             {
                 var notification = new Notification
@@ -51,7 +53,7 @@ namespace backend_trial.Services
                     IdeaId = ideaId,
                     ReviewerId = reviewerId
                 };
-
+                // Save the notification to the database
                 _dbContext.Notifications.Add(notification);
                 await _dbContext.SaveChangesAsync();
             }

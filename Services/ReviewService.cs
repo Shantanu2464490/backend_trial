@@ -21,12 +21,14 @@ namespace backend_trial.Services
 
         public async Task<IEnumerable<IdeaWithDetailsResponseDto>> GetAllIdeasForReviewAsync(CancellationToken ct)
         {
+            // Only return ideas that are under review or have been reviewed by the manager
             var ideas = await reviewRepository.GetAllIdeasForReviewAsync(ct);
             return ideas.Select(MapIdea);
         }
 
         public async Task<IEnumerable<IdeaWithDetailsResponseDto>> GetIdeasByStatusAsync(string status, CancellationToken ct)
         {
+            // Only return ideas that match the specified status and are under review or have been reviewed by the manager
             if (!Enum.TryParse<IdeaStatus>(status, true, out var parsedStatus))
                 throw new("Invalid status value");
 
@@ -36,6 +38,7 @@ namespace backend_trial.Services
 
         public async Task<IdeaWithDetailsResponseDto> GetIdeaForReviewAsync(Guid ideaId, CancellationToken ct)
         {
+            // Return the idea details only if it's under review or has been reviewed by the manager
             var idea = await reviewRepository.GetIdeaForReviewAsync(ideaId, ct)
                 ?? throw new ("Idea not found");
 
@@ -44,12 +47,13 @@ namespace backend_trial.Services
 
         public async Task<ReviewResponseDto> SubmitFeedbackAsync(Guid ideaId, Guid managerId, string feedback, CancellationToken ct)
         {
+            // Validate that the idea exists and is under review or has been reviewed by the manager
             if (!await reviewRepository.IdeaExistsAsync(ideaId, ct))
                 throw new ("Idea not found");
 
             var manager = await reviewRepository.GetUserAsync(managerId, ct)
                 ?? throw new ("Manager not found");
-
+            // map the review to the domain model and save it
             var review = new Review
             {
                 ReviewId = Guid.NewGuid(),
@@ -58,10 +62,10 @@ namespace backend_trial.Services
                 Feedback = feedback,
                 ReviewDate = DateTime.UtcNow
             };
-
+            // Save the review
             await reviewRepository.AddReviewAsync(review, ct);
             await reviewRepository.SaveChangesAsync(ct);
-
+            // Return the saved review details
             return new ReviewResponseDto
             {
                 ReviewId = review.ReviewId,
@@ -75,9 +79,10 @@ namespace backend_trial.Services
 
         public async Task<ReviewResponseDto> GetReviewByIdAsync(Guid id, CancellationToken ct)
         {
+            // Validate that the review exists
             var review = await reviewRepository.GetReviewByIdAsync(id, ct)
                 ?? throw new ("Review not found");
-
+            // Return the review details
             return new ReviewResponseDto
             {
                 ReviewId = review.ReviewId,
@@ -91,6 +96,7 @@ namespace backend_trial.Services
 
         public async Task<IEnumerable<ReviewResponseDto>> GetReviewsForIdeaAsync(Guid ideaId, CancellationToken ct)
         {
+            // Validate that the idea exists and is under review or has been reviewed by the manager
             if (!await reviewRepository.IdeaExistsAsync(ideaId, ct))
                 throw new ("Idea not found");
 
@@ -108,6 +114,7 @@ namespace backend_trial.Services
 
         public async Task<IEnumerable<ReviewResponseDto>> GetMyReviewsAsync(Guid managerId, CancellationToken ct)
         {
+            // get the review details
             var reviews = await reviewRepository.GetReviewsByManagerAsync(managerId, ct);
             return reviews.Select(r => new ReviewResponseDto
             {
@@ -122,19 +129,23 @@ namespace backend_trial.Services
 
         public async Task ChangeIdeaStatusAsync(Guid ideaId, string newStatusStr, string? comment, Guid managerId, CancellationToken ct)
         {
+            // checking if idea exists
             var idea = await reviewRepository.GetIdeaWithReviewerAsync(ideaId, ct)
                 ?? throw new ("Idea not found");
 
+            // checking idea status
             if (!Enum.TryParse<IdeaStatus>(newStatusStr, true, out var newStatus))
                 throw new ("Invalid status");
 
+            // making sure comment is provided when rejecting an idea
             if (newStatus == IdeaStatus.Rejected && string.IsNullOrWhiteSpace(comment))
                 throw new ("Comment is required when rejecting");
 
+            // only allow status change if the idea is currently under review or if the manager is the original reviewer
             if (idea.Status != IdeaStatus.UnderReview &&
                 idea.ReviewedByUserId != managerId)
                 throw new ("Only original reviewer can change status");
-
+            // get manager details for notification
             var manager = await reviewRepository.GetUserAsync(managerId, ct);
 
             idea.Status = newStatus;
@@ -142,9 +153,11 @@ namespace backend_trial.Services
             idea.ReviewedByUserId = managerId;
             idea.ReviewedByUserName = manager?.Name ?? "Manager";
 
+            // save the changes
             await reviewRepository.UpdateIdeaAsync(idea, ct);
             await reviewRepository.SaveChangesAsync(ct);
 
+            // send notification to the idea submitter about the decision
             if (newStatus == IdeaStatus.Rejected || newStatus == IdeaStatus.Approved)
             {
                 var decision = newStatus == IdeaStatus.Approved ? "Approved" : "Rejected";

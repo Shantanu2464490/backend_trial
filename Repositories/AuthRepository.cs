@@ -18,15 +18,11 @@ namespace backend_trial.Repositories
             this.tokenService = tokenService;
         }
 
-        public async Task<bool> UserExistsAsync(string email)
-        {
-            return await context.Users.AnyAsync(u => u.Email == email);
-        }
-
         public async Task<(bool Success, string Message)> RegisterAsync(RegisterRequestDto request)
         {
+            bool CheckUser = await context.Users.AnyAsync(user => user.Email == request.Email);
             // Check if user with the same email already exists
-            if (await UserExistsAsync(request.Email))
+            if (CheckUser)
             {
                 return (false, "User with this email already exists.");
             }

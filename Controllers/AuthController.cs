@@ -1,5 +1,6 @@
 ﻿using backend_trial.Models.DTO.Auth;
 using backend_trial.Repositories.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace backend_trial.Controllers
@@ -15,8 +16,10 @@ namespace backend_trial.Controllers
             this.authRepository = authRepository;
         }
 
+
         [HttpPost]
         [Route("register")]
+        [AllowAnonymous]
         public async Task<ActionResult<AuthResponseWrapper>> Register([FromBody] RegisterRequestDto request)
         {
 
@@ -47,6 +50,7 @@ namespace backend_trial.Controllers
 
         [HttpPost]
         [Route("login")]
+        [AllowAnonymous]
         public async Task<ActionResult<AuthResponseWrapper>> Login([FromBody] LoginRequestDto request)
         {
             if (!ModelState.IsValid)

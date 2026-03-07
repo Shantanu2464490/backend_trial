@@ -1,3 +1,4 @@
+// Import necessary namespaces
 using backend_trial.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -13,11 +14,12 @@ using FluentValidation;
 using backend_trial.Models.DTO.Auth;
 using backend_trial.Validators;
 
-var builder = WebApplication.CreateBuilder(args);
+// Create and configure the web application builder
+var builder = WebApplication.CreateBuilder(args); 
 
 // Add services to the container.
 
-// Add CORS configuration
+// Add CORS configuration: allowing only specific origins
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAngularApp", policy =>
@@ -29,9 +31,11 @@ builder.Services.AddCors(options =>
     });
 });
 
-builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+// Add controllers and Swagger/OpenAPI support
+builder.Services.AddControllers(); 
 builder.Services.AddEndpointsApiExplorer();
+
+// Configure Swagger to include JWT authentication support
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo { Title= "IdeaBoard API", Version= "v1" });
@@ -60,6 +64,8 @@ builder.Services.AddSwaggerGen(options =>
         }
     });
 });
+
+// Add DbContext with SQL Server connection
 builder.Services.AddDbContext<IdeaBoardDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Add Repositories
@@ -87,6 +93,8 @@ builder.Services.AddScoped<IUserManagementService, UserManagementService>();
 builder.Services.AddScoped<IValidator<LoginRequestDto>, LoginRequestValidator>();
 builder.Services.AddScoped<IValidator<RegisterRequestDto>, RegisterRequestValidator>();
 
+
+// Configure JWT authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     options.TokenValidationParameters = new TokenValidationParameters
@@ -101,7 +109,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
     });
 
-
+// Build the application
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -110,14 +118,24 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+// Add custom exception handling middleware
 app.UseMiddleware<ExceptionHandlerMiddleware>();
+
+// Redirect HTTP requests to HTTPS
 app.UseHttpsRedirection();
 
+
+// Enable CORS with the defined policy
 app.UseCors("AllowAngularApp");
 
+// Enable authentication and authorization middleware
 app.UseAuthentication();
 app.UseAuthorization();
 
+// Map controller routes
 app.MapControllers();
 
+
+// Run the application
 app.Run();

@@ -5,7 +5,7 @@ namespace backend_trial.Models.DTO.Idea
     public class IdeaRequestDto
     {
         [Required(ErrorMessage = "Title is required")]
-        [StringLength(200, MinimumLength = 5, ErrorMessage = "Title must be above 5 characters")]
+        [StringLength(50, MinimumLength = 5, ErrorMessage = "Title must be above 5 characters")]
         public string Title { get; set; } = null!;
 
         [Required(ErrorMessage = "Description is required")]

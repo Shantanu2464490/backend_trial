@@ -137,7 +137,7 @@ namespace backend_trial.Services
                 Description = request.Description,
                 CategoryId = request.CategoryId,
                 SubmittedByUserId = userId,
-                SubmittedDate = DateTime.UtcNow,
+                SubmittedDate = DateTime.Now,
                 Status = IdeaStatus.UnderReview
             };
             // Save the new idea to the database

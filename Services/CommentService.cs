@@ -41,7 +41,7 @@ namespace backend_trial.Services
                 IdeaId = ideaId,
                 UserId = userId,
                 Text = request.Text,
-                CreatedDate = DateTime.UtcNow
+                CreatedDate = DateTime.Now
             };
 
             // update database

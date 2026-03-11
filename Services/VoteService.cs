@@ -118,7 +118,7 @@ namespace backend_trial.Services
                 IdeaId = ideaId,
                 UserId = currentUserId,
                 Text = commentText,
-                CreatedDate = DateTime.UtcNow
+                CreatedDate = DateTime.Now
             };
             // adding comment 
             await voteRepository.AddCommentAsync(comment, ct);

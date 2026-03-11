@@ -29,7 +29,7 @@ namespace backend_trial.Services
                 Type = NotificationType.NewIdea,
                 Message = $"New idea submitted: {ideaTitle}",
                 Status = NotificationStatus.Unread,
-                CreatedDate = DateTime.UtcNow,
+                CreatedDate = DateTime.Now,
                 IdeaId = ideaId
             });
             // Save notifications to the database
@@ -49,7 +49,7 @@ namespace backend_trial.Services
                     Type = NotificationType.ReviewDecision,
                     Message = $"Your idea \"{ideaTitle}\" has been {decision.ToLower()} by {reviewerName}",
                     Status = NotificationStatus.Unread,
-                    CreatedDate = DateTime.UtcNow,
+                    CreatedDate = DateTime.Now,
                     IdeaId = ideaId,
                     ReviewerId = reviewerId
                 };

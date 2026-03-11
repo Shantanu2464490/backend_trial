@@ -116,8 +116,8 @@ namespace backend_trial.Services
         public async Task<IEnumerable<IdeasByDateDto>> GetIdeasByDateRangeAsync(DateTime? startDate, DateTime? endDate, CancellationToken ct = default)
         {
             // Set default date range to last 30 days if not provided
-            var start = startDate ?? DateTime.UtcNow.AddMonths(-1);
-            var end = endDate ?? DateTime.UtcNow;
+            var start = startDate ?? DateTime.Now.AddMonths(-1);
+            var end = endDate ?? DateTime.Now;
 
 
             // Fetch idea counts grouped by date for the specified range and build DTOs

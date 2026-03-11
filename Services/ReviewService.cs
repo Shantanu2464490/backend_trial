@@ -60,7 +60,7 @@ namespace backend_trial.Services
                 IdeaId = ideaId,
                 ReviewerId = managerId,
                 Feedback = feedback,
-                ReviewDate = DateTime.UtcNow
+                ReviewDate = DateTime.Now
             };
             // Save the review
             await reviewRepository.AddReviewAsync(review, ct);
